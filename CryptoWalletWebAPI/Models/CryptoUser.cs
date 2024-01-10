@@ -7,7 +7,6 @@ namespace CryptoWalletWebAPI.Models
         public string FirstName { get; set; }
         public string LastName { get; set; }
         public string PrivateKey { get; set; }
-
         public int TotalBalance { get; set; }
 
     }
