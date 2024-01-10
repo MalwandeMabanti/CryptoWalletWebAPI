@@ -1,15 +1,12 @@
 ﻿using CryptoWalletWebAPI.Interfaces;
 using CryptoWalletWebAPI.Models;
-using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
-using Microsoft.Win32;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
-using System.Security.Claims;
 
 namespace CryptoWalletWebAPI.Controllers
 {
@@ -21,7 +18,7 @@ namespace CryptoWalletWebAPI.Controllers
         private readonly SignInManager<CryptoUser> _signInManager;
         private readonly IConfiguration _configuration;
         private readonly IEmailSenderService emailSenderService;
-        private readonly ILogger<AuthController> _logger;
+        private readonly IWalletService walletService;
 
 
 
@@ -31,37 +28,32 @@ namespace CryptoWalletWebAPI.Controllers
             IEmailSenderService emailSenderService,
             ILogger<AuthController> logger)
 
+            IWalletService walletService)
+
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _configuration = configuration;
             this.emailSenderService = emailSenderService;   
-            _logger = logger;
-
+            this.walletService = walletService;
         }
 
         // POST api/auth/login
         [HttpPost("Login")]
         public async Task<IActionResult> Login([FromBody] Login model)
         {
-            
-            string test = this.GeneratePrivateKey();
-            int num = test.Length;
-            
-
             if (!ModelState.IsValid)
             {
                 return BadRequest(this.ModelState);
             }
 
             var user = await _userManager.FindByNameAsync(model.Email);
-            if (user != null && await _userManager.CheckPasswordAsync(user, model.Password))
+            if (user == null && await _userManager.CheckPasswordAsync(user, model.Password))
             {
-                var token = GenerateJsonWebToken(user);
-
-                return Ok(new { Token = token });
-            }
             return Unauthorized("You are not a registered user.");
+        }
+
+            return Ok(new { Token = GenerateJsonWebToken(user), UserName = user.Email });
         }
 
         // POST api/auth/register
@@ -69,7 +61,6 @@ namespace CryptoWalletWebAPI.Controllers
         public async Task<IActionResult> Register([FromBody] Register model)
         {
             var existingUser = await this._userManager.FindByEmailAsync(model.Email);
-
 
             if (existingUser != null)
             {
@@ -83,23 +74,31 @@ namespace CryptoWalletWebAPI.Controllers
                 FirstName = model.FirstName,
                 LastName = model.LastName,
                 PrivateKey = this.GeneratePrivateKey(),
-                TotalBalance = 10000
+                TotalBalance = 60000
             };
 
             var result = await _userManager.CreateAsync(user, model.Password);
-
 
             if (!result.Succeeded)
             {
                 return BadRequest("There was a problem creating the user");
             }
 
+            var newUser = new SpecificUser
+            {
+                UserId = user.PrivateKey,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                Email = user.Email,
+                Balance = 60000
+
+            };
+
+            await this.walletService.AddUser(newUser);
+
             await this.emailSenderService.SendEmailAsync("Crypto Wallet Registration", this.EmailFormat(user), user.Email);
 
-
-            return Ok(new { token = GenerateJsonWebToken(user), message = "User registered successfully! You can now login" });
-
-
+            return Ok(new { token = GenerateJsonWebToken(user), data = "User registered successfully! You can now login" });
         }
 
         private string GeneratePrivateKey()
@@ -112,12 +111,10 @@ namespace CryptoWalletWebAPI.Controllers
             }
         }
 
-        
-
         private string EmailFormat(CryptoUser user)
         {
             var htmlMessage = $@"
-                <p>Welcome to Sybrin CryptoWallets <strong>{user.FirstName} {user.LastName}!!</strong></p>
+                <p>Welcome to CryptoWallets <strong>{user.FirstName} {user.LastName}!!</strong></p>
                 <br>
                 <p>Private Key: <strong>{user.PrivateKey}</strong></p>
                 <p>Total Balance: <strong>{user.TotalBalance}</strong></p>
@@ -128,16 +125,14 @@ namespace CryptoWalletWebAPI.Controllers
             return htmlMessage;
         }
 
-
-
-
         private string GenerateJsonWebToken(CryptoUser user)
         {
             var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
             var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
 
             var claims = new[] {
-            new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
+            new Claim(ClaimTypes.NameIdentifier, user.PrivateKey),
+            new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.GivenName, user.FirstName + " " + user.LastName),
         };
 
