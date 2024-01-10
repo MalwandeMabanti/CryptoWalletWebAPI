@@ -20,14 +20,11 @@ namespace CryptoWalletWebAPI.Controllers
         private readonly IEmailSenderService emailSenderService;
         private readonly IWalletService walletService;
 
-
-
         public AuthController(UserManager<CryptoUser> userManager,
             SignInManager<CryptoUser> signInManager,
             IConfiguration configuration,
             IEmailSenderService emailSenderService,
-            ILogger<AuthController> logger)
-
+           
             IWalletService walletService)
 
         {
@@ -50,8 +47,8 @@ namespace CryptoWalletWebAPI.Controllers
             var user = await _userManager.FindByNameAsync(model.Email);
             if (user == null && await _userManager.CheckPasswordAsync(user, model.Password))
             {
-            return Unauthorized("You are not a registered user.");
-        }
+                return Unauthorized("You are not a registered user.");
+            }
 
             return Ok(new { Token = GenerateJsonWebToken(user), UserName = user.Email });
         }
@@ -135,7 +132,7 @@ namespace CryptoWalletWebAPI.Controllers
             new Claim(ClaimTypes.Email, user.Email),
             new Claim(ClaimTypes.GivenName, user.FirstName + " " + user.LastName),
         };
-
+            
             var token = new JwtSecurityToken(_configuration["Jwt:Issuer"],
                 _configuration["Jwt:Issuer"],
                 claims,
