@@ -1,5 +1,7 @@
 ﻿using CryptoWalletWebAPI.Interfaces;
 using CryptoWalletWebAPI.Models;
+using CryptoWalletWebAPI.Validators;
+using FluentValidation;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.IdentityModel.Tokens;
@@ -19,13 +21,16 @@ namespace CryptoWalletWebAPI.Controllers
         private readonly IConfiguration _configuration;
         private readonly IEmailSenderService emailSenderService;
         private readonly IWalletService walletService;
+        private readonly IAuthService authService;
+        private readonly IValidator<Register> validator;
 
         public AuthController(UserManager<CryptoUser> userManager,
             SignInManager<CryptoUser> signInManager,
             IConfiguration configuration,
             IEmailSenderService emailSenderService,
-           
-            IWalletService walletService)
+            IWalletService walletService,
+            IAuthService authService,
+            IValidator<Register> validator)
 
         {
             _userManager = userManager;
@@ -33,6 +38,8 @@ namespace CryptoWalletWebAPI.Controllers
             _configuration = configuration;
             this.emailSenderService = emailSenderService;   
             this.walletService = walletService;
+            this.authService = authService;
+            this.validator = validator;
         }
 
         // POST api/auth/login
@@ -50,13 +57,22 @@ namespace CryptoWalletWebAPI.Controllers
                 return Unauthorized("You are not a registered user.");
             }
 
-            return Ok(new { Token = GenerateJsonWebToken(user), UserName = user.Email });
+            return Ok(new { Token = this.authService.GenerateJsonWebToken(user), UserName = user.Email });
         }
 
         // POST api/auth/register
         [HttpPost("Register")]
         public async Task<IActionResult> Register([FromBody] Register model)
         {
+            var registerResult = this.validator.Validate(model, _ => _.IncludeRuleSets("Create"));
+
+            if (!registerResult.IsValid) 
+            {
+                registerResult.AddModelState(this.ModelState);
+
+                return this.BadRequest(this.ModelState);
+            }
+
             var existingUser = await this._userManager.FindByEmailAsync(model.Email);
 
             if (existingUser != null)
@@ -70,7 +86,7 @@ namespace CryptoWalletWebAPI.Controllers
                 Email = model.Email,
                 FirstName = model.FirstName,
                 LastName = model.LastName,
-                PrivateKey = this.GeneratePrivateKey(),
+                PrivateKey = this.authService.GeneratePrivateKey(),
                 TotalBalance = 60000
             };
 
@@ -93,53 +109,9 @@ namespace CryptoWalletWebAPI.Controllers
 
             await this.walletService.AddUser(newUser);
 
-            await this.emailSenderService.SendEmailAsync("Crypto Wallet Registration", this.EmailFormat(user), user.Email);
+            await this.emailSenderService.SendEmailAsync("Crypto Wallet Registration", this.emailSenderService.EmailFormat(user), user.Email);
 
-            return Ok(new { token = GenerateJsonWebToken(user), data = "User registered successfully! You can now login" });
-        }
-
-        private string GeneratePrivateKey()
-        {
-            using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
-            {
-                byte[] randomBytes = new byte[8]; 
-                rng.GetBytes(randomBytes);
-                return BitConverter.ToString(randomBytes).Replace("-", string.Empty);
-            }
-        }
-
-        private string EmailFormat(CryptoUser user)
-        {
-            var htmlMessage = $@"
-                <p>Welcome to CryptoWallets <strong>{user.FirstName} {user.LastName}!!</strong></p>
-                <br>
-                <p>Private Key: <strong>{user.PrivateKey}</strong></p>
-                <p>Total Balance: <strong>{user.TotalBalance}</strong></p>
-                <br>
-                <p>Please enjoy your stay</p>
-                ";
-
-            return htmlMessage;
-        }
-
-        private string GenerateJsonWebToken(CryptoUser user)
-        {
-            var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
-            var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-            var claims = new[] {
-            new Claim(ClaimTypes.NameIdentifier, user.PrivateKey),
-            new Claim(ClaimTypes.Email, user.Email),
-            new Claim(ClaimTypes.GivenName, user.FirstName + " " + user.LastName),
-        };
-            
-            var token = new JwtSecurityToken(_configuration["Jwt:Issuer"],
-                _configuration["Jwt:Issuer"],
-                claims,
-                expires: DateTime.Now.AddMinutes(120),
-                signingCredentials: credentials);
-
-            return new JwtSecurityTokenHandler().WriteToken(token);
+            return Ok(new { token = this.authService.GenerateJsonWebToken(user), data = "User registered successfully! You can now login" });
         }
     }
 }
