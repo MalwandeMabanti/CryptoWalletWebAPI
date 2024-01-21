@@ -2,6 +2,8 @@ using CryptoWalletWebAPI.Data;
 using CryptoWalletWebAPI.Interfaces;
 using CryptoWalletWebAPI.Models;
 using CryptoWalletWebAPI.Services;
+using CryptoWalletWebAPI.Validators;
+using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 //using Microsoft.AspNet.Identity.EntityFramework;
 using Microsoft.AspNetCore.Identity;
@@ -32,6 +34,9 @@ builder.Services.Configure<EmailSettings>(configuration.GetSection("EmailSetting
 builder.Services.AddTransient<IEmailSenderService, EmailSenderService>();
 
 builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+
+builder.Services.AddScoped<IValidator<Transaction>, TransactionValidator>();
 
 builder.Services.AddAuthentication(options =>
 {
