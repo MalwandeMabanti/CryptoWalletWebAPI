@@ -11,33 +11,50 @@ using static System.Net.Mime.MediaTypeNames;
 
 using System.Text.Json;
 using Microsoft.AspNetCore.Http.HttpResults;
+using FluentValidation;
+using CryptoWalletWebAPI.Validators;
 
 namespace CryptoWalletWebAPI.Controllers
 {
+    [Authorize]
     [Route("api/[controller]")]
     [ApiController]
     public class WalletController : ControllerBase
     {
         private readonly IWalletService walletService;
         private readonly IEmailSenderService emailSenderService;
+        private readonly IValidator<Transaction> validator;
 
-        public WalletController(IWalletService walletService, IEmailSenderService emailSenderService)
+        public WalletController(
+            IWalletService walletService, 
+            IEmailSenderService emailSenderService,
+            IValidator<Transaction> validator)
         {
             this.walletService = walletService;
             this.emailSenderService = emailSenderService;
+            this.validator = validator;
         }
 
-        [Authorize]
         [HttpPost("send")]
         public async Task<IActionResult> AddTransaction(Transaction transaction) 
         {
-            if (!ModelState.IsValid) 
-            { 
-                return BadRequest(ModelState);
+
+            var result = this.validator.Validate(transaction, _ => _.IncludeRuleSets("Create"));
+
+            if (!result.IsValid) 
+            {
+                result.AddModelState(this.ModelState);
+
+                return this.BadRequest(this.ModelState);
             }
 
             var sendingUser = await this.walletService.GetReceivingUser(User.FindFirstValue(ClaimTypes.Email));
             var receivingUser = await this.walletService.GetReceivingUser(transaction.RecipientEmail);
+
+            if (transaction.UserId != sendingUser.UserId) 
+            {
+                return BadRequest($"The private key '{transaction.UserId}' does not match '{sendingUser.UserId}'");
+            }
 
             if (receivingUser == null)
             {
@@ -46,18 +63,17 @@ namespace CryptoWalletWebAPI.Controllers
 
             await this.walletService.AddTransaction(sendingUser, receivingUser, transaction);
 
-            await this.emailSenderService.SendEmailAsync("Money Sent", this.EmailFormat(sendingUser, transaction, "Money sent"), sendingUser.Email);
+            await this.emailSenderService.SendEmailAsync("Money Sent", this.emailSenderService.EmailFormat(sendingUser, transaction, "Money sent"), sendingUser.Email);
 
-            await this.emailSenderService.SendEmailAsync("Money Received", this.EmailFormat(receivingUser, transaction, "Money received"), receivingUser.Email);
+            await this.emailSenderService.SendEmailAsync("Money Received", this.emailSenderService.EmailFormat(receivingUser, transaction, "Money received"), receivingUser.Email);
 
             return Ok();
         }
 
-        [Authorize]
-        [HttpGet("GetSpecificUserWithTransactions")]
-        public async Task<IActionResult> GetSpecificUserWithTransactions()
+        [HttpGet("GetSpecificUserWithOutTransactions")]
+        public async Task<IActionResult> GetSpecificUserWithOutTransactions()
         {
-            var specificUser = await this.walletService.GetSpecificUserWithTransactions(User.FindFirstValue(ClaimTypes.Email));
+            var specificUser = await this.walletService.GetSpecificUserWithOutTransactions(User.FindFirstValue(ClaimTypes.Email));
 
             if (specificUser == null) 
             {
@@ -67,23 +83,17 @@ namespace CryptoWalletWebAPI.Controllers
             return Ok(specificUser);
         }
 
-        [HttpGet("GetAllUserTransactions")]
-        public async Task<IActionResult> GetAllUserTransactions()
+        [HttpGet("GetSpecificUserWithInTransactions")]
+        public async Task<IActionResult> GetSpecificUserWithInTransactions()
         {
-            return Ok(await this.walletService.GetAllTransactionsAsync());
-        }
+            var specificUser = await this.walletService.GetSpecificUserWithInTransactions(User.FindFirstValue(ClaimTypes.Email));
 
-        private string EmailFormat(SpecificUser specificUser, Transaction transaction, string transactionType)
-        {
-            var htmlMessage = $@"
-                <p>{transactionType}: <strong>{transaction.Amount}!!</strong></p>
-                <br>
-                <p>Remaining Balance: <strong>{specificUser.Balance}</strong></p>
-                <br>
-                <p>Penjoy your stay</p>
-                ";
+            if (specificUser == null)                  
+            {
+                return this.NotFound("User not found");
+            }
 
-            return htmlMessage;
+            return Ok(specificUser);
         }
     }
 
