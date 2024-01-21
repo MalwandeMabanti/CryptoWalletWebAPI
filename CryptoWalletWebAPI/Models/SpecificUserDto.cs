@@ -1,4 +1,5 @@
-﻿namespace CryptoWalletWebAPI.Models
+﻿
+namespace CryptoWalletWebAPI.Models
 {
     public class SpecificUserDto
     {
