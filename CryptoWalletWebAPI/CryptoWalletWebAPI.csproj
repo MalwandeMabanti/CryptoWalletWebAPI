@@ -7,7 +7,7 @@
     <UserSecretsId>72c3711b-08c2-46a0-9cd0-ea7f62e8b9f5</UserSecretsId>
   </PropertyGroup>
 
-  <ItemGroup>	  <PackageReference Include="EntityFramework" Version="6.4.4" />	  <PackageReference Include="MailKit" Version="4.3.0" />	  <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.19" />
+  <ItemGroup>	  <PackageReference Include="EntityFramework" Version="6.4.4" />	  <PackageReference Include="FluentValidation" Version="11.9.0" />	  <PackageReference Include="MailKit" Version="4.3.0" />	  <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.19" />
 	   <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.19" />
     <PackageReference Include="Microsoft.AspNetCore.Identity.EntityFrameworkCore" Version="6.0.19" />       <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.19" />
     <PackageReference Include="Microsoft.AspNet.Identity.EntityFramework" Version="2.2.4" /> <PackageReference Include="Microsoft.AspNetCore.Authentication.JwtBearer" Version="6.0.19" />
