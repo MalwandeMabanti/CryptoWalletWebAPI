@@ -51,5 +51,32 @@ namespace CryptoWalletWebAPI.Services
             }
 
         }
+
+        public string EmailFormat(CryptoUser user)
+        {
+            var htmlMessage = $@"
+                <p>Welcome to CryptoWallets <strong>{user.FirstName} {user.LastName}!!</strong></p>
+                <br>
+                <p>Private Key: <strong>{user.PrivateKey}</strong></p>
+                <p>Total Balance: <strong>{user.TotalBalance}</strong></p>
+                <br>
+                <p>Please enjoy your stay</p>
+                ";
+
+            return htmlMessage;
+        }
+
+        public string EmailFormat(SpecificUser specificUser, Transaction transaction, string transactionType)
+        {
+            var htmlMessage = $@"
+                <p>{transactionType}: <strong>{transaction.Amount}!!</strong></p>
+                <br>
+                <p>Remaining Balance: <strong>{specificUser.Balance}</strong></p>
+                <br>
+                <p>Penjoy your stay</p>
+                ";
+
+            return htmlMessage;
+        }
     }
 }

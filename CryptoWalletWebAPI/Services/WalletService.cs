@@ -26,16 +26,7 @@ namespace CryptoWalletWebAPI.Services
 #pragma warning restore CS8603 // Possible null reference return.
         }
 
-        public async Task<Transaction> GetDetailsByEmail(string email) 
-        {
-#pragma warning disable CS8603 // Possible null reference return.
-            return await this.context.Transactions
-                .Where(_ => _.SendingEmail == email)
-                .FirstOrDefaultAsync();
-#pragma warning restore CS8603 // Possible null reference return.
-        }
-
-        public async Task<SpecificUserDto> GetSpecificUserWithTransactions(string email)
+        public async Task<SpecificUserDto> GetSpecificUserWithOutTransactions(string email)
         {
 #pragma warning disable CS8603 // Possible null reference return.
 #pragma warning disable CS8604 // Possible null reference argument.
@@ -49,9 +40,10 @@ namespace CryptoWalletWebAPI.Services
                     Email = _.Email,
                     Balance = _.Balance,
                     
-                    Transactions = _.Transactions.Select(_ => new TransactionDto
+                    Transactions = _.Transactions
+                    .Where(_ => _.SendingEmail == email)
+                    .Select(_ => new TransactionDto
                     {
-                        // Map properties of Transaction except the one you want to exclude
                         Id = _.Id,
                         FirstName = _.FirstName,
                         LastName = _.LastName,
@@ -66,10 +58,35 @@ namespace CryptoWalletWebAPI.Services
 #pragma warning restore CS8603 // Possible null reference return.
         }
 
-        public async Task<Transaction>? GetById(int id)
+        public async Task<SpecificUserDto> GetSpecificUserWithInTransactions(string email)
         {
 #pragma warning disable CS8603 // Possible null reference return.
-            return await this.context.Transactions.FindAsync(id);
+#pragma warning disable CS8604 // Possible null reference argument.
+            return await this.context.SpecificUsers
+                .Where(_ => _.Email == email)
+                .Select(_ => new SpecificUserDto
+                {
+                    UserId = _.UserId,
+                    FirstName = _.FirstName,
+                    LastName = _.LastName,
+                    Email = _.Email,
+                    Balance = _.Balance,
+
+                    Transactions = _.Transactions
+                    .Where(_ => _.RecipientEmail == email)
+                    .Select(_ => new TransactionDto
+                    {
+                        Id = _.Id,
+                        FirstName = _.FirstName,
+                        LastName = _.LastName,
+                        SendingEmail = _.SendingEmail,
+                        RecipientEmail = _.RecipientEmail,
+                        Amount = _.Amount,
+                        UserId = _.UserId
+                    }).ToList()
+                })
+                .FirstOrDefaultAsync();
+#pragma warning restore CS8604 // Possible null reference argument.
 #pragma warning restore CS8603 // Possible null reference return.
         }
 
@@ -78,17 +95,32 @@ namespace CryptoWalletWebAPI.Services
             await this.context.SpecificUsers.AddAsync(user);
             this.context.SaveChanges();
         }
-
-        private Transaction CreateTransaction(Transaction transaction, SpecificUser sendingUser) 
+        
+        private List<Transaction> CreateTransaction(Transaction transaction, SpecificUser sendingUser, SpecificUser receivingUser) 
         {
-            return new Transaction 
-            { 
-                FirstName = sendingUser.FirstName, 
-                LastName = sendingUser.LastName,
-                SendingEmail = sendingUser.Email,
-                RecipientEmail = transaction.RecipientEmail,
-                UserId = sendingUser.UserId,
-                Amount = transaction.Amount,
+
+            return new List<Transaction>
+            {
+                new Transaction
+                {
+                    FirstName = sendingUser.FirstName,
+                    LastName = sendingUser.LastName,
+                    SendingEmail = sendingUser.Email,
+                    RecipientEmail = transaction.RecipientEmail,
+                    UserId = sendingUser.UserId,
+                    Amount = -transaction.Amount,
+                },
+
+                new Transaction
+                {
+                    FirstName = receivingUser.FirstName,
+                    LastName = receivingUser.LastName,
+                    SendingEmail = receivingUser.Email,
+                    RecipientEmail = transaction.RecipientEmail,
+                    UserId = receivingUser.UserId,
+                    Amount = transaction.Amount,
+                }
+
             };
         }
 
@@ -111,9 +143,13 @@ namespace CryptoWalletWebAPI.Services
             using var transaction = this.context.Database.BeginTransaction();
             try
             {
-                var createdTransaction = CreateTransaction(currentTransaction, sendingUser);
+                var createdTransaction = CreateTransaction(currentTransaction, sendingUser, receivingUser);
 
-                await this.context.Transactions.AddAsync(createdTransaction);
+                await this.context.Transactions.AddAsync(createdTransaction[0]);
+
+                this.context.SaveChanges();
+
+                await this.context.Transactions.AddAsync(createdTransaction[1]);
 
                 this.context.SaveChanges();
 
@@ -140,12 +176,6 @@ namespace CryptoWalletWebAPI.Services
         public async Task<List<Transaction>> GetAllTransactionsAsync()
         {
             return await this.context.Transactions.ToListAsync();
-        }
-
-        public void DeleteTransaction(Transaction transaction) 
-        {
-            this.context.Transactions.Remove(transaction);
-            this.context.SaveChanges();
         }
     }
 }
