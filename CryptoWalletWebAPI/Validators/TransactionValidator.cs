@@ -17,14 +17,9 @@ namespace CryptoWalletWebAPI.Validators
 
         private void GeneralRules() 
         {
-            this.RuleFor(_ => _.SendingEmail)
-                .NotEmpty()
-                .MaximumLength(15)
-                .WithErrorCode(TransactionErrorCodes.SendingEmail);
-
             this.RuleFor(_ => _.RecipientEmail)
                 .NotEmpty()
-                .MaximumLength(15)
+                .MaximumLength(30)
                 .WithErrorCode(TransactionErrorCodes.RecipientEmail);
 
             this.RuleFor(_ => _.Amount)
