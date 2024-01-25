@@ -37,6 +37,7 @@ builder.Services.AddScoped<IWalletService, WalletService>();
 builder.Services.AddScoped<IAuthService, AuthService>();
 
 builder.Services.AddScoped<IValidator<Transaction>, TransactionValidator>();
+builder.Services.AddScoped<IValidator<Register>, RegisterValidator>();
 
 builder.Services.AddAuthentication(options =>
 {
