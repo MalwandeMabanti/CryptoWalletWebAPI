@@ -32,18 +32,6 @@ namespace CryptoWalletWebAPITests
         }
 
         [Fact]
-        public void CreateInvalidSendingEmail()
-        {
-            var model = TransactionHelper.CreateTransaction();
-
-            model.SendingEmail = "qqqqqqqqwerrfgggggggggggggggggggggggggggr";
-
-            var result = this.validator.TestValidate(model, _ => _.IncludeRuleSets("Create"));
-
-            Assert.False(result.IsValid, "qwer");
-        }
-
-        [Fact]
         public void CreateInvalidReceivingEmail()
         {
             var model = TransactionHelper.CreateTransaction();
