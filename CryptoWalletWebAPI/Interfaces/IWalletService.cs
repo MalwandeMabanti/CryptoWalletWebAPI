@@ -14,6 +14,6 @@ namespace CryptoWalletWebAPI.Interfaces
 
         Task AddTransaction(SpecificUser sendingUser, SpecificUser receivingUser, Transaction transaction);
 
-        Task<List<Transaction>> GetAllTransactionsAsync();
+        Task<List<PublicTransactionDto>> GetAllTransactionsAsync();
     }
 }
