@@ -173,9 +173,15 @@ namespace CryptoWalletWebAPI.Services
             }
         }
 
-        public async Task<List<Transaction>> GetAllTransactionsAsync()
+        public async Task<List<PublicTransactionDto>> GetAllTransactionsAsync()
         {
-            return await this.context.Transactions.ToListAsync();
+            return await this.context.Transactions
+                .Select(_ => new PublicTransactionDto 
+                {
+                    SendingEmail = _.SendingEmail,
+                    RecipientEmail = _.RecipientEmail,
+                    Amount = _.Amount
+                }).ToListAsync();
         }
     }
 }
