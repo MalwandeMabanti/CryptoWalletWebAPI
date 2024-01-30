@@ -3,6 +3,7 @@ using CryptoWalletWebAPI.Interfaces;
 using CryptoWalletWebAPI.Models;
 using Microsoft.AspNet.Identity;
 using Microsoft.EntityFrameworkCore;
+using System.Diagnostics;
 using System.Security.Claims;
 //using System.Transactions;
 
@@ -50,6 +51,7 @@ namespace CryptoWalletWebAPI.Services
                         SendingEmail = _.SendingEmail,
                         RecipientEmail = _.RecipientEmail,
                         Amount = _.Amount,
+                        TransactionType = _.TransactionType,
                         UserId = _.UserId
                     }).ToList()
                 })
@@ -82,6 +84,7 @@ namespace CryptoWalletWebAPI.Services
                         SendingEmail = _.SendingEmail,
                         RecipientEmail = _.RecipientEmail,
                         Amount = _.Amount,
+                        TransactionType = _.TransactionType,
                         UserId = _.UserId
                     }).ToList()
                 })
@@ -109,16 +112,18 @@ namespace CryptoWalletWebAPI.Services
                     RecipientEmail = transaction.RecipientEmail,
                     UserId = sendingUser.UserId,
                     Amount = -transaction.Amount,
+                    TransactionType = "out"
                 },
 
                 new Transaction
                 {
                     FirstName = receivingUser.FirstName,
                     LastName = receivingUser.LastName,
-                    SendingEmail = receivingUser.Email,
+                    SendingEmail = sendingUser.Email,
                     RecipientEmail = transaction.RecipientEmail,
                     UserId = receivingUser.UserId,
                     Amount = transaction.Amount,
+                    TransactionType = "in"
                 }
 
             };
@@ -176,11 +181,12 @@ namespace CryptoWalletWebAPI.Services
         public async Task<List<PublicTransactionDto>> GetAllTransactionsAsync()
         {
             return await this.context.Transactions
+                .Where(_ => _.TransactionType == "out")
                 .Select(_ => new PublicTransactionDto 
                 {
                     SendingEmail = _.SendingEmail,
                     RecipientEmail = _.RecipientEmail,
-                    Amount = _.Amount
+                    Amount = -_.Amount,
                 }).ToListAsync();
         }
     }
