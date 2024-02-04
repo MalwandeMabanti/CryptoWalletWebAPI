@@ -1,6 +1,7 @@
 ﻿using CryptoWalletWebAPI.Data;
 using CryptoWalletWebAPI.Interfaces;
 using CryptoWalletWebAPI.Models;
+using CryptoWalletWebAPI.Services;
 using Microsoft.AspNet.Identity;
 using Microsoft.EntityFrameworkCore;
 using System.Diagnostics;
@@ -12,10 +13,12 @@ namespace CryptoWalletWebAPI.Services
     public class WalletService : IWalletService
     {
         private readonly ApplicationDbContext context;
+        private readonly ICacheService cacheService;
 
-        public WalletService(ApplicationDbContext context)
+        public WalletService(ApplicationDbContext context, ICacheService cacheService)
         {
             this.context = context;
+            this.cacheService = cacheService;
         }
 
         public async Task<SpecificUser> GetReceivingUser(string receivingEmail) 
@@ -180,14 +183,21 @@ namespace CryptoWalletWebAPI.Services
 
         public async Task<List<PublicTransactionDto>> GetAllTransactionsAsync()
         {
-            return await this.context.Transactions
-                .Where(_ => _.TransactionType == "out")
-                .Select(_ => new PublicTransactionDto 
-                {
-                    SendingEmail = _.SendingEmail,
-                    RecipientEmail = _.RecipientEmail,
-                    Amount = -_.Amount,
-                }).ToListAsync();
+            var cacheKey = "GetAllTransactions";
+            if (!this.cacheService.TryGetValue(cacheKey, out List<PublicTransactionDto> publicTransactions))
+            {
+                publicTransactions = await this.context.Transactions
+                    .Where(_ => _.TransactionType == "out")
+                    .Select(_ => new PublicTransactionDto
+                    {
+                        SendingEmail = _.SendingEmail,
+                        RecipientEmail = _.RecipientEmail,
+                        Amount = _.Amount
+                    }).ToListAsync();
+                this.cacheService.Set(cacheKey, publicTransactions, TimeSpan.FromMinutes(20));
+            }
+
+            return publicTransactions;
         }
     }
 }
